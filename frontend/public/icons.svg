@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" style="display:none">
+  <symbol id="documentation-icon" viewBox="0 0 24 24"><rect width="18" height="18" x="3" y="3" rx="2" fill="#64748b"/></symbol>
+  <symbol id="social-icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="#06b6d4"/></symbol>
+  <symbol id="github-icon" viewBox="0 0 24 24"><path fill="#fff" d="M12 2C6.5 2 2 6.5 2 12c0 4.4 2.9 8.1 6.9 9.4.5.1.7-.2.7-.5v-1.8c-2.8.6-3.4-1.2-3.4-1.2-.5-1.3-1.2-1.6-1.2-1.6-1-.7.1-.7.1-.7 1.1.1 1.7 1.1 1.7 1.1 1 .1 1.7.8 2.1 1.2.3-.9.7-1.4 1.3-1.7-2.2-.2-4.5-1.1-4.5-5 0-1.1.4-2 1.1-2.7-.1-.3-.5-1.3.1-2.7 0 0 .9-.3 3 .9.9-.3 1.9-.5 2.9-.5s2 .2 2.9.5c2.1-1.3 3-.9 3-.9.6 1.4.2 2.4.1 2.7.7.7 1.1 1.6 1.1 2.7 0 3.9-2.3 4.8-4.5 5 .7.6 1.2 1.6 1.2 3v4.4c0 .3.2.6.7.5C19.1 20.1 22 16.4 22 12 22 6.5 17.5 2 12 2z"/></symbol>
+  <symbol id="discord-icon" viewBox="0 0 24 24"><rect width="18" height="18" x="3" y="3" rx="4" fill="#5865f2"/></symbol>
+  <symbol id="x-icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="#1DA1F2"/></symbol>
+  <symbol id="bluesky-icon" viewBox="0 0 24 24"><rect width="18" height="18" x="3" y="3" rx="3" fill="#66a6ff"/></symbol>
+</svg>

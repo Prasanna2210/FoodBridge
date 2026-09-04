@@ -1,5 +1,7 @@
 const Request = require("../models/Request");
 const Donation = require("../models/Donation");
+const User = require("../models/User");
+const { sendEmail } = require("../services/emailService");
 
 const requestDonation = async (req, res) => {
   try {
@@ -50,6 +52,104 @@ const requestDonation = async (req, res) => {
       message,
     });
 
+ // Find donor
+const donor = await User.findById(donation.donor);
+
+if (donor) {
+  try {
+    await sendEmail({
+      to: donor.email,
+      subject: "New Food Request - FoodBridge",
+      htmlContent: `
+        <div style="
+          font-family: Arial, sans-serif;
+          max-width: 600px;
+          margin: auto;
+          padding: 20px;
+          color: #333;
+        ">
+
+          <h2 style="color: #059669;">
+            FoodBridge
+          </h2>
+
+          <h3>
+            New Food Request
+          </h3>
+
+          <p>
+            Hello ${donor.name},
+          </p>
+
+          <p>
+            A recipient has requested your food donation.
+          </p>
+
+          <div style="
+            background: #f0fdf4;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 20px 0;
+          ">
+
+            <p>
+              <strong>Food:</strong>
+              ${donation.title}
+            </p>
+
+            <p>
+              <strong>Food Type:</strong>
+              ${donation.foodType}
+            </p>
+
+            <p>
+              <strong>Quantity:</strong>
+              ${donation.quantity}
+            </p>
+
+            <p>
+              <strong>Requested By:</strong>
+              ${req.user.name}
+            </p>
+
+            ${
+              message
+                ? `<p>
+                    <strong>Message:</strong>
+                    ${message}
+                   </p>`
+                : ""
+            }
+
+          </div>
+
+          <p>
+            Please log in to FoodBridge to review this request.
+          </p>
+
+          <p style="margin-top: 30px; color: #666;">
+            Thank you for helping reduce food waste.
+          </p>
+
+          <p style="color: #666;">
+            <strong>FoodBridge Team</strong>
+          </p>
+
+        </div>
+      `,
+    });
+
+    console.log(
+      `Request notification email sent to ${donor.email}`
+    );
+
+  } catch (emailError) {
+    console.error(
+      "Failed to send request notification email:",
+      emailError.message
+    );
+  }
+}
     // Update donation status
     donation.status = "Requested";
     await donation.save();
@@ -128,7 +228,9 @@ const getDonorRequests = async (req, res) => {
 
 const approveRequest = async (req, res) => {
   try {
-    const request = await Request.findById(req.params.id).populate("donation");
+    const request = await Request.findById(req.params.id)
+      .populate("donation")
+      .populate("recipient", "name email");
 
     if (!request) {
       return res.status(404).json({
@@ -137,19 +239,117 @@ const approveRequest = async (req, res) => {
       });
     }
 
-    // Verify ownership
-    if (request.donation.donor.toString() !== req.user._id.toString()) {
+    // Verify donor ownership
+    if (
+      request.donation.donor.toString() !==
+      req.user._id.toString()
+    ) {
       return res.status(403).json({
         success: false,
         message: "Access denied.",
       });
     }
 
+    // Update request status
     request.status = "Approved";
     await request.save();
 
+    // Update donation status
     request.donation.status = "Approved";
     await request.donation.save();
+
+    // Send approval email to recipient
+    const recipient = request.recipient;
+
+    if (recipient) {
+      try {
+        await sendEmail({
+          to: recipient.email,
+          subject: "Donation Request Approved - FoodBridge",
+          htmlContent: `
+            <div style="
+              font-family: Arial, sans-serif;
+              max-width: 600px;
+              margin: auto;
+              padding: 20px;
+              color: #333;
+            ">
+
+              <h2 style="color: #059669;">
+                FoodBridge
+              </h2>
+
+              <h3>
+                🎉 Your Donation Request Was Approved!
+              </h3>
+
+              <p>
+                Hello ${recipient.name},
+              </p>
+
+              <p>
+                Good news! Your request for the following
+                food donation has been approved by the donor.
+              </p>
+
+              <div style="
+                background: #f0fdf4;
+                padding: 15px;
+                border-radius: 8px;
+                margin: 20px 0;
+              ">
+
+                <p>
+                  <strong>Food:</strong>
+                  ${request.donation.title}
+                </p>
+
+                <p>
+                  <strong>Food Type:</strong>
+                  ${request.donation.foodType}
+                </p>
+
+                <p>
+                  <strong>Quantity:</strong>
+                  ${request.donation.quantity}
+                </p>
+
+                <p>
+                  <strong>Location:</strong>
+                  ${request.donation.location}
+                </p>
+
+              </div>
+
+              <p>
+                Please log in to FoodBridge to view the
+                donation details and arrange the pickup.
+              </p>
+
+              <p style="margin-top: 30px; color: #666;">
+                Thank you for helping reduce food waste.
+              </p>
+
+              <p style="color: #666;">
+                <strong>FoodBridge Team</strong>
+              </p>
+
+            </div>
+          `,
+        });
+
+        console.log(
+          `Approval email sent to ${recipient.email}`
+        );
+
+      } catch (emailError) {
+        // Email failure should not undo the approval
+        console.error(
+          "Failed to send approval email:",
+          emailError.message
+        );
+      }
+    }
 
     res.status(200).json({
       success: true,
@@ -166,10 +366,11 @@ const approveRequest = async (req, res) => {
     });
   }
 };
-
 const rejectRequest = async (req, res) => {
   try {
-    const request = await Request.findById(req.params.id).populate("donation");
+    const request = await Request.findById(req.params.id)
+      .populate("donation")
+      .populate("recipient", "name email");
 
     if (!request) {
       return res.status(404).json({
@@ -179,19 +380,117 @@ const rejectRequest = async (req, res) => {
     }
 
     // Verify donor ownership
-    if (request.donation.donor.toString() !== req.user._id.toString()) {
+    if (
+      request.donation.donor.toString() !==
+      req.user._id.toString()
+    ) {
       return res.status(403).json({
         success: false,
         message: "Access denied.",
       });
     }
 
+    // Update request status
     request.status = "Rejected";
     await request.save();
 
-    // Optional: make donation available again
+    // Make donation available again
     request.donation.status = "Available";
     await request.donation.save();
+
+    // Send rejection email to recipient
+    const recipient = request.recipient;
+
+    if (recipient) {
+      try {
+        await sendEmail({
+          to: recipient.email,
+          subject: "Donation Request Update - FoodBridge",
+          htmlContent: `
+            <div style="
+              font-family: Arial, sans-serif;
+              max-width: 600px;
+              margin: auto;
+              padding: 20px;
+              color: #333;
+            ">
+
+              <h2 style="color: #059669;">
+                FoodBridge
+              </h2>
+
+              <h3>
+                Donation Request Update
+              </h3>
+
+              <p>
+                Hello ${recipient.name},
+              </p>
+
+              <p>
+                Unfortunately, your request for the following
+                food donation was not approved by the donor.
+              </p>
+
+              <div style="
+                background: #fef2f2;
+                padding: 15px;
+                border-radius: 8px;
+                margin: 20px 0;
+              ">
+
+                <p>
+                  <strong>Food:</strong>
+                  ${request.donation.title}
+                </p>
+
+                <p>
+                  <strong>Food Type:</strong>
+                  ${request.donation.foodType}
+                </p>
+
+                <p>
+                  <strong>Quantity:</strong>
+                  ${request.donation.quantity}
+                </p>
+
+                <p>
+                  <strong>Location:</strong>
+                  ${request.donation.location}
+                </p>
+
+              </div>
+
+              <p>
+                The donation has been made available again
+                on FoodBridge, so you may explore other
+                available donations.
+              </p>
+
+              <p style="margin-top: 30px; color: #666;">
+                Thank you for using FoodBridge.
+              </p>
+
+              <p style="color: #666;">
+                <strong>FoodBridge Team</strong>
+              </p>
+
+            </div>
+          `,
+        });
+
+        console.log(
+          `Rejection email sent to ${recipient.email}`
+        );
+
+      } catch (emailError) {
+        // Email failure should not undo the rejection
+        console.error(
+          "Failed to send rejection email:",
+          emailError.message
+        );
+      }
+    }
 
     res.status(200).json({
       success: true,
@@ -208,10 +507,11 @@ const rejectRequest = async (req, res) => {
     });
   }
 };
-
 const completePickup = async (req, res) => {
   try {
-    const request = await Request.findById(req.params.id).populate("donation");
+    const request = await Request.findById(req.params.id)
+      .populate("donation")
+      .populate("recipient", "name email");
 
     if (!request) {
       return res.status(404).json({
@@ -221,7 +521,10 @@ const completePickup = async (req, res) => {
     }
 
     // Only the recipient who created the request can complete it
-    if (request.recipient.toString() !== req.user._id.toString()) {
+    if (
+      request.recipient._id.toString() !==
+      req.user._id.toString()
+    ) {
       return res.status(403).json({
         success: false,
         message: "Access denied.",
@@ -236,11 +539,112 @@ const completePickup = async (req, res) => {
       });
     }
 
+    // Update request status
     request.status = "Completed";
     await request.save();
 
+    // Update donation status
     request.donation.status = "Completed";
     await request.donation.save();
+
+    // Find donor
+    const donor = await User.findById(request.donation.donor);
+
+    // Send completion email to donor
+    if (donor) {
+      try {
+        await sendEmail({
+          to: donor.email,
+          subject: "Food Pickup Completed - FoodBridge",
+          htmlContent: `
+            <div style="
+              font-family: Arial, sans-serif;
+              max-width: 600px;
+              margin: auto;
+              padding: 20px;
+              color: #333;
+            ">
+
+              <h2 style="color: #059669;">
+                FoodBridge
+              </h2>
+
+              <h3>
+                🎉 Food Pickup Completed
+              </h3>
+
+              <p>
+                Hello ${donor.name},
+              </p>
+
+              <p>
+                The recipient has successfully completed
+                the pickup for your food donation.
+              </p>
+
+              <div style="
+                background: #f0fdf4;
+                padding: 15px;
+                border-radius: 8px;
+                margin: 20px 0;
+              ">
+
+                <p>
+                  <strong>Food:</strong>
+                  ${request.donation.title}
+                </p>
+
+                <p>
+                  <strong>Food Type:</strong>
+                  ${request.donation.foodType}
+                </p>
+
+                <p>
+                  <strong>Quantity:</strong>
+                  ${request.donation.quantity}
+                </p>
+
+                <p>
+                  <strong>Pickup Location:</strong>
+                  ${request.donation.location}
+                </p>
+
+                <p>
+                  <strong>Recipient:</strong>
+                  ${request.recipient.name}
+                </p>
+
+              </div>
+
+              <p>
+                Your donation has now been marked as completed.
+              </p>
+
+              <p>
+                Thank you for helping reduce food waste and
+                supporting your community through FoodBridge.
+              </p>
+
+              <p style="margin-top: 30px; color: #666;">
+                <strong>FoodBridge Team</strong>
+              </p>
+
+            </div>
+          `,
+        });
+
+        console.log(
+          `Pickup completion email sent to ${donor.email}`
+        );
+
+      } catch (emailError) {
+        // Email failure should not undo the completed pickup
+        console.error(
+          "Failed to send pickup completion email:",
+          emailError.message
+        );
+      }
+    }
 
     res.status(200).json({
       success: true,

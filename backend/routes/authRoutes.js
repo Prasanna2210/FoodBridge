@@ -7,6 +7,7 @@ const {
   loginUser,
   getProfile,
   updateProfile,
+  testEmail,
 } = require("../controllers/authController");
 
 
@@ -24,6 +25,8 @@ router.post("/login", loginUser);
 router.get("/profile", protect, getProfile);
 
 router.put("/profile", protect, updateProfile);
+
+router.get("/test-email", protect, testEmail);
 
 router.post(
   "/profile/avatar",

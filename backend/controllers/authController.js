@@ -1,6 +1,6 @@
 const User = require("../models/User");
 const generateToken = require("../utils/generateToken");
-
+const { sendEmail } = require("../services/emailService");
 const registerUser = async (req, res) => {
   try {
     const {
@@ -198,9 +198,57 @@ const updateProfile = async (req, res) => {
 
   }
 };
+
+const testEmail = async (req, res) => {
+  try {
+    await sendEmail({
+      to: req.user.email,
+      subject: "FoodBridge Email Test",
+      htmlContent: `
+        <div style="font-family: Arial, sans-serif; padding: 20px;">
+          <h2 style="color: #059669;">FoodBridge</h2>
+
+          <p>Hello ${req.user.name},</p>
+
+          <p>
+            This is a test email from your FoodBridge application.
+          </p>
+
+          <p>
+            Your Brevo email integration is working successfully! 🎉
+          </p>
+
+          <p>
+            We can now use this system for donation and request
+            notifications.
+          </p>
+
+          <hr />
+
+          <p style="color: #666;">
+            FoodBridge Team
+          </p>
+        </div>
+      `,
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: "Test email sent successfully",
+    });
+  } catch (error) {
+    console.error("Test email error:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Failed to send test email",
+    });
+  }
+};
 module.exports = {
   registerUser,
   loginUser,
   getProfile,
   updateProfile,
+  testEmail,
 };

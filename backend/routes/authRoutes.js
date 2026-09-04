@@ -5,6 +5,8 @@ const router = express.Router();
 const {
   registerUser,
   loginUser,
+  forgotPassword,
+  resetPassword,
   getProfile,
   updateProfile,
   testEmail,
@@ -26,7 +28,9 @@ router.get("/profile", protect, getProfile);
 
 router.put("/profile", protect, updateProfile);
 
-router.get("/test-email", protect, testEmail);
+router.post("/forgot-password", forgotPassword);
+
+router.post("/reset-password/:token", resetPassword);
 
 router.post(
   "/profile/avatar",

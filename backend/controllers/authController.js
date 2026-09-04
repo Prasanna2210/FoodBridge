@@ -1,6 +1,7 @@
 const User = require("../models/User");
 const generateToken = require("../utils/generateToken");
 const { sendEmail } = require("../services/emailService");
+const crypto = require("crypto");
 const registerUser = async (req, res) => {
   try {
     const {
@@ -132,6 +133,228 @@ const loginUser = async (req, res) => {
   }
 };
 
+const forgotPassword = async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    if (!email) {
+      return res.status(400).json({
+        success: false,
+        message: "Email is required.",
+      });
+    }
+
+    // Find user
+    const user = await User.findOne({ email });
+
+    // Don't reveal whether an email exists
+    if (!user) {
+      return res.status(200).json({
+        success: true,
+        message:
+          "If an account with that email exists, a password reset link has been sent.",
+      });
+    }
+
+    // Generate secure random token
+    const resetToken = crypto.randomBytes(32).toString("hex");
+
+    // Store hashed token in database
+    const hashedToken = crypto
+      .createHash("sha256")
+      .update(resetToken)
+      .digest("hex");
+
+    user.resetPasswordToken = hashedToken;
+
+    // Token expires in 30 minutes
+    user.resetPasswordExpires = Date.now() + 30 * 60 * 1000;
+
+    await user.save();
+
+    // Frontend URL
+    const frontendUrl =
+      process.env.CLIENT_URL || "http://localhost:5173";
+
+    const resetUrl =
+      `${frontendUrl}/reset-password/${resetToken}`;
+
+    // Send reset email
+    try {
+      await sendEmail({
+        to: user.email,
+        subject: "Reset Your FoodBridge Password",
+        htmlContent: `
+          <div style="
+            font-family: Arial, sans-serif;
+            max-width: 600px;
+            margin: auto;
+            padding: 20px;
+            color: #333;
+          ">
+
+            <h2 style="color: #059669;">
+              FoodBridge
+            </h2>
+
+            <h3>
+              Password Reset Request
+            </h3>
+
+            <p>
+              Hello ${user.name},
+            </p>
+
+            <p>
+              We received a request to reset your FoodBridge
+              account password.
+            </p>
+
+            <p>
+              Click the button below to create a new password:
+            </p>
+
+            <div style="text-align: center; margin: 30px 0;">
+
+              <a
+                href="${resetUrl}"
+                style="
+                  background: #059669;
+                  color: white;
+                  padding: 12px 24px;
+                  text-decoration: none;
+                  border-radius: 6px;
+                  font-weight: bold;
+                  display: inline-block;
+                "
+              >
+                Reset Password
+              </a>
+
+            </div>
+
+            <p>
+              This link will expire in <strong>30 minutes</strong>.
+            </p>
+
+            <p>
+              If you did not request a password reset, you can
+              safely ignore this email.
+            </p>
+
+            <hr />
+
+            <p style="color: #666;">
+              FoodBridge Team
+            </p>
+
+          </div>
+        `,
+      });
+    } catch (emailError) {
+      console.error(
+        "Failed to send password reset email:",
+        emailError.message
+      );
+
+      // Remove token if email failed
+      user.resetPasswordToken = null;
+      user.resetPasswordExpires = null;
+
+      await user.save();
+
+      return res.status(500).json({
+        success: false,
+        message: "Failed to send password reset email.",
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message:
+        "If an account with that email exists, a password reset link has been sent.",
+    });
+
+  } catch (error) {
+    console.error("Forgot password error:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Server Error",
+    });
+  }
+};
+
+
+const resetPassword = async (req, res) => {
+  try {
+    const { password } = req.body;
+    const { token } = req.params;
+
+    if (!password) {
+      return res.status(400).json({
+        success: false,
+        message: "New password is required.",
+      });
+    }
+
+    if (password.length < 6) {
+      return res.status(400).json({
+        success: false,
+        message: "Password must be at least 6 characters.",
+      });
+    }
+
+    if (!token) {
+      return res.status(400).json({
+        success: false,
+        message: "Reset token is required.",
+      });
+    }
+
+    // Hash the token received from the URL
+    const hashedToken = crypto
+      .createHash("sha256")
+      .update(token)
+      .digest("hex");
+
+    // Find user with valid token
+    const user = await User.findOne({
+      resetPasswordToken: hashedToken,
+      resetPasswordExpires: { $gt: Date.now() },
+    }).select("+resetPasswordToken +resetPasswordExpires");
+
+    if (!user) {
+      return res.status(400).json({
+        success: false,
+        message: "Reset token is invalid or has expired.",
+      });
+    }
+
+    // Set new password
+    user.password = password;
+
+    // Clear reset token
+    user.resetPasswordToken = null;
+    user.resetPasswordExpires = null;
+
+    await user.save();
+
+    return res.status(200).json({
+      success: true,
+      message: "Password reset successfully. You can now log in.",
+    });
+
+  } catch (error) {
+    console.error("Reset password error:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Server Error",
+    });
+  }
+};
+
 const getProfile = async (req, res) => {
   try {
     res.status(200).json({
@@ -198,57 +421,11 @@ const updateProfile = async (req, res) => {
 
   }
 };
-
-const testEmail = async (req, res) => {
-  try {
-    await sendEmail({
-      to: req.user.email,
-      subject: "FoodBridge Email Test",
-      htmlContent: `
-        <div style="font-family: Arial, sans-serif; padding: 20px;">
-          <h2 style="color: #059669;">FoodBridge</h2>
-
-          <p>Hello ${req.user.name},</p>
-
-          <p>
-            This is a test email from your FoodBridge application.
-          </p>
-
-          <p>
-            Your Brevo email integration is working successfully! 🎉
-          </p>
-
-          <p>
-            We can now use this system for donation and request
-            notifications.
-          </p>
-
-          <hr />
-
-          <p style="color: #666;">
-            FoodBridge Team
-          </p>
-        </div>
-      `,
-    });
-
-    return res.status(200).json({
-      success: true,
-      message: "Test email sent successfully",
-    });
-  } catch (error) {
-    console.error("Test email error:", error);
-
-    return res.status(500).json({
-      success: false,
-      message: "Failed to send test email",
-    });
-  }
-};
 module.exports = {
   registerUser,
   loginUser,
+  forgotPassword,
+  resetPassword,
   getProfile,
   updateProfile,
-  testEmail,
 };

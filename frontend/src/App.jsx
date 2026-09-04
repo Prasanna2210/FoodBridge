@@ -26,6 +26,9 @@ import RecipientDashboardHome from "./pages/recipient/RecipientDashboardHome";
 import MyRequests from "./pages/recipient/MyRequests";
 import Profile from "./pages/profile/Profile";
 
+import ForgotPassword from "./pages/auth/ForgotPassword";
+import ResetPassword from "./pages/auth/ResetPassword";
+
 function App() {
   return (
     <BrowserRouter>
@@ -42,6 +45,15 @@ function App() {
           }
         />
 
+        <Route
+  path="/forgot-password"
+  element={<ForgotPassword />}
+/>
+
+<Route
+  path="/reset-password/:token"
+  element={<ResetPassword />}
+/>
         <Route
           path="/register"
           element={
@@ -98,10 +110,10 @@ function App() {
 
           </Route>
 
-            <Route
-  path="/profile"
-  element={<Profile />}
-/>
+          <Route
+            path="/profile"
+            element={<Profile />}
+          />
         </Route>
 
         <Route

@@ -60,6 +60,15 @@ const userSchema = new mongoose.Schema(
       required: [true, "Address is required"],
       trim: true,
     },
+    avatar: {
+    type: String,
+    default: null,
+    },
+
+avatarPublicId: {
+  type: String,
+  default: null,
+},
   },
   {
     timestamps: true,

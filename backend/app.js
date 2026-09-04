@@ -11,6 +11,8 @@ const requestRoutes = require("./routes/requestRoutes");
 
 const dashboardRoutes = require("./routes/dashboardRoutes");
 
+const profileRoutes = require("./routes/profileRoutes");
+
 const app = express();
 
 // Middleware
@@ -47,6 +49,7 @@ app.use("/api/auth", authRoutes);
 app.use("/api/donations", donationRoutes);
 app.use("/api/requests", requestRoutes);
 app.use("/api/dashboard", dashboardRoutes);
+app.use("/api/profile", profileRoutes);
 
 app.use((req, res) => {
   res.status(404).json({

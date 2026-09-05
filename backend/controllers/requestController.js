@@ -225,7 +225,6 @@ const getDonorRequests = async (req, res) => {
     });
   }
 };
-
 const approveRequest = async (req, res) => {
   try {
     const request = await Request.findById(req.params.id)
@@ -263,6 +262,10 @@ const approveRequest = async (req, res) => {
 
     if (recipient) {
       try {
+        // Get donor contact details
+        const donor = await User.findById(request.donation.donor)
+          .select("name phone address");
+
         await sendEmail({
           to: recipient.email,
           subject: "Donation Request Approved - FoodBridge",
@@ -321,9 +324,43 @@ const approveRequest = async (req, res) => {
 
               </div>
 
+              ${
+                donor
+                  ? `
+                    <div style="
+                      background: #eff6ff;
+                      padding: 15px;
+                      border-radius: 8px;
+                      margin: 20px 0;
+                    ">
+
+                      <h4 style="margin-top: 0; color: #2563eb;">
+                        📞 Donor Contact Details
+                      </h4>
+
+                      <p>
+                        <strong>Donor:</strong>
+                        ${donor.name}
+                      </p>
+
+                      <p>
+                        <strong>Phone:</strong>
+                        ${donor.phone}
+                      </p>
+
+                      <p>
+                        <strong>Address:</strong>
+                        ${donor.address}
+                      </p>
+
+                    </div>
+                  `
+                  : ""
+              }
+
               <p>
-                Please log in to FoodBridge to view the
-                donation details and arrange the pickup.
+                Please contact the donor using the details
+                above to arrange the food pickup.
               </p>
 
               <p style="margin-top: 30px; color: #666;">
